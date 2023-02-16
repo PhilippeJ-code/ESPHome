@@ -72,7 +72,7 @@ les compiler et téléverser le firmware sur l'ESP32 sur le port USB qu vous dev
 
 ## 3. Et ça donne
 
-Un petit tour sur le WEB à l'adresse attribuée àl'ESP32
+Un petit tour sur le WEB à l'adresse attribuée à l'ESP32
 
 ![web](/docs/images/web.png "web")
 

@@ -76,6 +76,6 @@ display:
       }
 ```
 
-Et ça donne
+Je lance la commande `esphome run base_i2c_display.yaml` et ça donne 
 
 ![stick](../images/stick.png "stick")

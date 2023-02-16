@@ -1,14 +1,16 @@
 # Modifications apportées au wizard
 
-    Description du fichier de configuration
+Description du fichier de configuration
+
+Cela permet de subtituer toutes les occurences de $devicename par bureau, cela facilitera 
+le travail de maintenance
 
 ```
 substitutions:
   devicename: bureau
 ```
 
-Cela permet de subtituer toutes les occurences de $devicename par bureau, cela facilitera 
-le travail de maintenance
+J'utilise la substitution pour le 'name' de 'esphome' et je force la vitesse de téléversement ( upload_speed )
 
 ```
 esphome:
@@ -17,7 +19,7 @@ esphome:
     upload_speed: 115200
 ```
 
-J'utilise la substitution pour le 'name' de 'esphome' et je force la vitesse de téléversement ( upload_speed )
+Description de la carte utilisée
 
 ```
 esp32:
@@ -25,20 +27,23 @@ esp32:
   framework:
     type: arduino
 ```
-Description de carte utilisée
+
+Utilisation d'un logger ( qui est très bavard et c'est tant mieux )
 
 ```
 logger:
 ```
 
-Utilisation d'un logger ( qui est très bavard et c'est tant mieux )
+Définition du mot de passe pour le téléversement du firmware "Over The Air"
 
 ```
 ota:
   password: ""
 ```
 
-Définition du mot de passe pour le téléversement du firmware "Over The Air"
+Identifiants Wifi, si l'ESP32 ne peut pas se connecter au réseau spécifié il crée un réseau WiFi ( ici StickAP ) 
+qui permet de changer les identifiants du Wifi en se connectant avec un msartphone par exemple et en accédant
+à l'adresse 192.168.1.4
 
 ```
 wifi:
@@ -51,15 +56,16 @@ wifi:
 
 ```
 
-Identifiants Wifi, si l'ESP32 ne peut pas se connecter au réseau spécifié il crée un réseau WiFi ( ici StickAP ) 
-qui permet de changer les identifiants du Wifi
+Création d'un serveur WEB
 
 ```
 web_server:
   port: 80
 ```
 
-Création d'un serveur WEB
+Identifiants MQTT et ici j'utilise encore la substitution. Si je veux créer un nouvel équipement dans la cuisine, je change en début de fichier 
+'devicename: bureau' par 'devicename: cuisine' et le tour est joué.
+
 
 ```
 mqtt:
@@ -68,6 +74,3 @@ mqtt:
   password: jeedomPassword
   client_id: $devicename
 ```
-
-Identifiants MQTT et ici j'utilise encore la substitution. Si je veux créer un nouvel équipement dans la cuisine, je change en début de fichier 
-'devicename: bureau' par 'devicename: cuisine' et le tour est joué.

@@ -17,7 +17,7 @@ esphome:
     upload_speed: 115200
 ```
 
-J'utilise la substitution pour le 'name' de 'esphome et je force la vitesse de téléversement ( upload_speed )
+J'utilise la substitution pour le 'name' de 'esphome' et je force la vitesse de téléversement ( upload_speed )
 
 ```
 mqtt:
@@ -28,7 +28,7 @@ mqtt:
 ```
 
 J'utilise encore la substitution. Si je veux créer un nouvel équipement dans la cuisine, je change en début de fichier 
-devicename: bureau par devicename:cuisine et le tour est joué.
+'devicename: bureau' par 'devicename: cuisine' et le tour est joué.
 
 
 

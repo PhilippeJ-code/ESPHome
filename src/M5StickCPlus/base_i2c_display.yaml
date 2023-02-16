@@ -1,0 +1,132 @@
+substitutions:
+  devicename: bureau
+
+esphome:
+  name: $devicename
+  platformio_options:
+    upload_speed: 115200
+
+esp32:
+  board: m5stick-c
+  framework:
+    type: arduino
+
+logger:
+
+ota:
+  password: ""
+
+wifi:
+  ssid: "wifi_ssid"
+  password: "wifi_password"
+
+  ap:
+    ssid: "StickAP"
+    password: "12345678"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+mqtt:
+  broker: 192.168.1.210
+  username: mqtt_username
+  password: mqtt_password
+  client_id: $devicename
+
+i2c:
+   - id: bus_a
+     sda: GPIO21
+     scl: GPIO22
+     scan: true
+   - id: bus_b
+     sda: GPIO0
+     scl: GPIO26
+     scan: true
+
+sensor:
+  - platform: sht3xd
+    i2c_id: bus_b
+    temperature:
+      name: "Température"
+      state_topic: $devicename/temperature
+      id: temperature
+    humidity:
+      name: "Humidité"
+      state_topic: $devicename/humidite
+      id: humidite
+    address: 0x44
+    update_interval: 60s
+  - platform: qmp6988
+    temperature:
+      id: idNull
+    pressure:
+      name: "Pression"
+      oversampling: 16x
+      state_topic: $devicename/pression
+      id: pression
+    address: 0x70
+    i2c_id: bus_b
+    update_interval: 60s
+    iir_filter: 2x
+
+spi:
+  clk_pin: GPIO13
+  mosi_pin: GPIO15
+
+font:
+  - file: 'arial.ttf'
+    id: fontArial
+    size: 20
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µéèçàêëö'
+
+color:
+  - id: red
+    red: 100%
+    green: 0%
+    blue: 0%
+  - id: yellow
+    red: 100%
+    green: 100%
+    blue: 0%
+  - id: green
+    red: 0%
+    green: 100%
+    blue: 0%
+  - id: blue
+    red: 0%
+    green: 0%
+    blue: 100%
+  - id: white
+    red: 100%
+    green: 100%
+    blue: 100%
+
+display:
+  - platform: st7789v
+    id: tDisplay
+    model: TTGO TDisplay 135x240
+    cs_pin: GPIO5
+    dc_pin: GPIO23
+    reset_pin: GPIO18
+    update_interval: 5s
+    rotation: 270
+    lambda: |-
+
+      char str[16];
+      if (id(temperature).has_state()) {
+        sprintf(str, "%.1f °C", id(temperature).state);
+        it.print(120, 45, id(fontArial), blue, TextAlign::CENTER, str);
+      }
+      if (id(humidite).has_state()) {
+        sprintf(str, "%.1f %%", id(humidite).state);
+        it.print(120, 70, id(fontArial), blue, TextAlign::CENTER, str);
+      }
+      if (id(pression).has_state()) {
+        sprintf(str, "%.0f hPa", id(pression).state);
+        it.print(120, 95, id(fontArial), blue, TextAlign::CENTER, str);
+      }
+
+
+

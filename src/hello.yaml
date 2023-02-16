@@ -13,8 +13,8 @@ ota:
   password: ""
 
 wifi:
-  ssid: "WiFi_SSID"
-  password: "WiFi_Password"
+  ssid: "wifi_ssid"
+  password: "wifi_password"
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -28,6 +28,6 @@ web_server:
 
 mqtt:
   broker: 192.168.1.210
-  username: username_mqtt
-  password: password_mqtt
+  username: mqtt_username
+  password: mqtt_password
   client_id: bureau

@@ -26,8 +26,8 @@ Je vais donc lancer la commande  `esphome wizard hello.yaml`, quelques questions
 le fichier hello.yaml sera créé, il ne restera plus qu'à le compiler et à l'envoyer sur l'ESP32.
 
 Le wizard nous demande d'abord le nom du module, le module sera installé sur mon bureau je le nomme donc `bureau`, 
-la plateforme pour moi `ESP32`, la carte pour moi `az-delivery-devkit-v4`, le SSID de mon réseau WiFi `WiFi_SSID`,
-le mot de passe `WiFi_Password` et pour le mot de passe ota on ne met rien.
+la plateforme pour moi `ESP32`, la carte pour moi `az-delivery-devkit-v4`, le SSID de mon réseau WiFi `wifi_ssid`,
+le mot de passe `_password` et pour le mot de passe ota on ne met rien.
 
 Voici le code généré dans le fichier hello.yaml
 
@@ -63,7 +63,8 @@ captive_portal:
 ```
 
 Je supprime les 3 lignes concernant Home Assistant, la possibilité d'accéder à l'ESP32 par le WEB et l'accès à MQTT 
-pour en arriver à ceci https://github.com/PhilippeJ-code/ESPHome/blob/master/src/hello.yaml.
+pour en arriver à ceci https://github.com/PhilippeJ-code/ESPHome/blob/master/src/hello.yaml. Il faudra changer les 
+identifiants WiFi et MQTT pour que ça fonctionne sur votre configuration.
 
 ## 2. Compilation
 
@@ -84,7 +85,7 @@ Les commandes créées automatiquement par ESPHome apparaissent tout aussi autom
 
 ![cmds](/docs/images/cmds.png "cmds")
 
-La suite dans le répertoire docs
+La suite dans le répertoire docs en commençant par le répertoire M5StickCPlus
 
 
 

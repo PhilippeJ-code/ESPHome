@@ -30,7 +30,8 @@ la plateforme pour moi `ESP32`, la carte pour moi `az-delivery-devkit-v4`, le SS
 le mot de passe `WiFi_Password` et pour le mot de passe ota on ne met rien.
 
 Voici le code généré dans le fichier hello.yaml
-...
+
+```
 esphome:
   name: bureau
 
@@ -59,7 +60,7 @@ wifi:
     password: "dBIEO8pQUXXa"
 
 captive_portal:
-    
-...
+```
 
-Je supprime les 3 lignes concernant Home Assistant pour en arriver à ceci  
+Je supprime les 3 lignes concernant Home Assistant, la possibilité d'accéder à l'ESP32 par le WEB et l'accès à MQTT 
+pour en arriver à ceci https://github.com/PhilippeJ-code/ESPHome/blob/master/src/hello.yaml.

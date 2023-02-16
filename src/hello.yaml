@@ -9,10 +9,6 @@ esp32:
 # Enable logging
 logger:
 
-# Enable Home Assistant API
-api:
-  password: ""
-
 ota:
   password: ""
 
@@ -27,3 +23,11 @@ wifi:
 
 captive_portal:
     
+web_server:
+  port: 80
+
+mqtt:
+  broker: 192.168.1.210
+  username: username_mqtt
+  password: password_mqtt
+  client_id: bureau

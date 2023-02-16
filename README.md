@@ -8,3 +8,4 @@ Un petit tour ici https://esphome.io/index.html pour se rendre compte des possib
 
 Pour l'utiliser il faut d'abord l'installer en suivant la procédure décrite ici https://esphome.io/guides/installing_esphome.html
 
+Pour la suite ça se passe ici https://github.com/PhilippeJ-code/ESPHome/blob/master/docs/index.md

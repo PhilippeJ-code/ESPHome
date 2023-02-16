@@ -1,0 +1,29 @@
+esphome:
+  name: bureau
+
+esp32:
+  board: az-delivery-devkit-v4
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: "WiFi_SSID"
+  password: "WiFi_Password"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Bureau Fallback Hotspot"
+    password: "dBIEO8pQUXXa"
+
+captive_portal:
+    

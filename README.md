@@ -25,3 +25,41 @@ On trouve une description complète de la ligne de commande ici https://esphome.
 Je vais donc lancer la commande  `esphome wizard hello.yaml`, quelques questions plus loin et 
 le fichier hello.yaml sera créé, il ne restera plus qu'à le compiler et à l'envoyer sur l'ESP32.
 
+Le wizard nous demande d'abord le nom du module, le module sera installé sur mon bureau je le nomme donc `bureau`, 
+la plateforme pour moi `ESP32`, la carte pour moi `az-delivery-devkit-v4`, le SSID de mon réseau WiFi `WiFi_SSID`,
+le mot de passe `WiFi_Password` et pour le mot de passe ota on ne met rien.
+
+Voici le code généré dans le fichier hello.yaml
+...
+esphome:
+  name: bureau
+
+esp32:
+  board: az-delivery-devkit-v4
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: "WiFi_SSID"
+  password: "WiFi_Password"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Bureau Fallback Hotspot"
+    password: "dBIEO8pQUXXa"
+
+captive_portal:
+    
+...
+
+Je supprime les 3 lignes concernant Home Assistant pour en arriver à ceci  

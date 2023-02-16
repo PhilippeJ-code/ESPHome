@@ -76,6 +76,10 @@ Et un petit tour sur Jeedom pour créer un équipement Bureau sur jMQTT avec un 
 
 ![jmqtt](/docs/images/jmqtt.png "jmqtt")
 
+Les commandes créées automatiquement par ESPHome apparaissent 
+
+![cmds](/docs/images/cmds.png "cmds")
+
 
 
 

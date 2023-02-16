@@ -11,9 +11,9 @@
 
     On trouve une description complète de la ligne de commande ici https://esphome.io/guides/cli.html
 
-    Je vais donc lancer la commande <pre><code>eshome wizard hello.yaml</code></pre>, quelques questions plus loin et 
+    Je vais donc lancer la commande  `esphome wizard hello.yaml`, quelques questions plus loin et 
     le fichier hello.yaml sera créé, il ne restera plus qu'à le compiler et à l'envoyer sur l'ESP32.
 
-    
+
     
 

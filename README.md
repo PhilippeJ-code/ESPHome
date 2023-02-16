@@ -64,3 +64,10 @@ captive_portal:
 
 Je supprime les 3 lignes concernant Home Assistant, la possibilité d'accéder à l'ESP32 par le WEB et l'accès à MQTT 
 pour en arriver à ceci https://github.com/PhilippeJ-code/ESPHome/blob/master/src/hello.yaml.
+
+Je lance la commande `esphome run hello.yaml` qui sur base du fichier configuration va générer les fichiers nécessaires, 
+les compiler et téléverser le firmware sur l'ESP32 sur le port USB qu vous devrez spécifier.
+
+Un petit tour sur le WEB à l'adresse attribuée àl'ESP32
+
+![web](/images/web.png "web")

@@ -70,4 +70,12 @@ les compiler et téléverser le firmware sur l'ESP32 sur le port USB qu vous dev
 
 Un petit tour sur le WEB à l'adresse attribuée àl'ESP32
 
-![web](/images/web.png "web")
+![web](/docs/images/web.png "web")
+
+Et un petit tour sur Jeedom pour créer un équipement Bureau sur jMQTT avec un topic bureau/#
+
+![jmqtt](/docs/images/jmqtt.png "jmqtt")
+
+
+
+

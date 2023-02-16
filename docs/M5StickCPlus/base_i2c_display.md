@@ -8,7 +8,7 @@ spi:
   mosi_pin: GPIO15
 
 ```
-J'ajoute une police de caratères et la liste de caractères à utiliser ( par défaut c'est sans les caratères accentués ),
+J'ajoute une police de caratères et la liste de caractères à utiliser ( par défaut c'est sans les caractères accentués ),
 le fichier arial.ttf doit se trouver dans le répertoire du fichier de configuration.
 
 ```
@@ -75,3 +75,7 @@ display:
         it.print(120, 95, id(fontArial), blue, TextAlign::CENTER, str);
       }
 ```
+
+Et ça donne
+
+![stick](../images/stick.png "stick")

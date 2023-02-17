@@ -17,10 +17,9 @@ i2c:
 ```
 
 Le capteur nous donne la température, l'humidité et la pression, j'ajoute donc ces éléments en spécifiant 
-le topic MQQT ( state_topic ). 
+le topic MQTT ( state_topic ). 
 
-platform    Type de composant qui se cache derrière le bus I2C
-I2C_id      L'ID du bus I2C
+Je spécifie le type de composant qui se cache derrière le bus I2C ( platform: ) et l'ID du bus I2C ( i2c_id ).
 
 Et ce qu'on reçoit du bus I2C, la température et l'humidité avec à chaque fois un nom et le topic MQTT
 

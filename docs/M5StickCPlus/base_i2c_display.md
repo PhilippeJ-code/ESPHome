@@ -1,6 +1,6 @@
 # Ajout d'un display
 
-Le capteur environnemental est accessible via le bus SPI, je l'ajoute.
+L'afficheur est accessible via le bus SPI, je l'ajoute.
 
 ```
 spi:
@@ -47,7 +47,7 @@ color:
 
 ```
 
-Et enfin le display
+Et enfin le display. ces caractèristiques et dans la section lambda un peu de code pour l'affichage
 
 ```
 display:

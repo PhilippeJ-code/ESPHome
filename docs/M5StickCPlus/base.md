@@ -42,7 +42,7 @@ ota:
 ```
 
 Identifiants Wifi, si l'ESP32 ne peut pas se connecter au réseau spécifié il crée un réseau WiFi ( ici StickAP ) 
-qui permet de changer les identifiants du Wifi en se connectant avec un msartphone par exemple et en accédant
+qui permet de changer les identifiants du Wifi en se connectant avec un smartphone par exemple et en accédant
 à l'adresse 192.168.1.4
 
 ```

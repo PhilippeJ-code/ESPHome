@@ -27,7 +27,7 @@ le fichier hello.yaml sera créé, il ne restera plus qu'à le compiler et à l'
 
 Le wizard nous demande d'abord le nom du module, le module sera installé sur mon bureau je le nomme donc `bureau`, 
 la plateforme pour moi `ESP32`, la carte pour moi `az-delivery-devkit-v4`, le SSID de mon réseau WiFi `wifi_ssid`,
-le mot de passe `_password` et pour le mot de passe ota on ne met rien.
+le mot de passe `ssid_password` et pour le mot de passe ota je ne mets rien.
 
 Voici le code généré dans le fichier hello.yaml
 
@@ -51,8 +51,8 @@ ota:
   password: ""
 
 wifi:
-  ssid: "WiFi_SSID"
-  password: "WiFi_Password"
+  ssid: "wifi_ssid"
+  password: "wifi_password"
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -69,7 +69,7 @@ identifiants WiFi et MQTT pour que ça fonctionne sur votre configuration.
 ## 2. Compilation
 
 Je lance la commande `esphome run hello.yaml` qui sur base du fichier configuration va générer les fichiers nécessaires, 
-les compiler et téléverser le firmware sur l'ESP32 sur le port USB qu vous devrez spécifier.
+les compiler et téléverser le firmware sur l'ESP32 sur le port USB que vous devrez spécifier.
 
 ## 3. Et ça donne
 

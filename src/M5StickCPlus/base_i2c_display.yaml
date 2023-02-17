@@ -46,7 +46,7 @@ i2c:
      scan: true
 
 sensor:
-  - platform: sht3xd
+  - platform: sht3xd    
     i2c_id: bus_b
     temperature:
       name: "Température"

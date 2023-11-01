@@ -70,7 +70,12 @@ sensor:
     i2c_id: bus_b
     update_interval: 60s
     iir_filter: 2x
-
+  - platform: axp192
+    model: M5STICKC
+    address: 0x34
+    i2c_id: bus_a
+    update_interval: 60s
+    
 spi:
   clk_pin: GPIO13
   mosi_pin: GPIO15

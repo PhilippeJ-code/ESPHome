@@ -47,7 +47,19 @@ color:
 
 ```
 
-Et enfin le display. ces caractèristiques et dans la section lambda un peu de code pour l'affichage
+Tout d'abord un composant qui n'existe pas dans ESPHome mais pas de souci, on peut intégrer le code dans le 
+répertoire custom_components. Code que l'on trouve sur le WEB.Ce composant ( axp192 ) est indispensable 
+car il gère l'éclairage du display.
+
+```
+  - platform: axp192
+    model: M5STICKC
+    address: 0x34
+    i2c_id: bus_a
+    update_interval: 60s
+```
+
+Et enfin le display. ses caractéristiques et dans la section lambda un peu de code pour l'affichage
 
 ```
 display:

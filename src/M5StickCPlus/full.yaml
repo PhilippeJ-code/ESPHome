@@ -1,0 +1,301 @@
+substitutions:
+  devicename: stick
+
+esphome:
+  name: $devicename
+  platformio_options:
+    upload_speed: 115200
+  includes:
+    - include/common.h
+
+esp32:
+  board: m5stick-c
+  framework:
+    type: arduino
+
+logger:
+
+ota:
+  password: "ota"
+
+wifi:
+  ssid: "wifi_ssid"
+  password: "wifi_password"
+
+  ap:
+    ssid: "StickAP"
+    password: "12345678"
+
+captive_portal:
+
+globals:
+  - id: msgBeep
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: gti
+    type: float
+    restore_value: no
+    initial_value: '0'
+
+mqtt:
+  broker: 192.168.1.210
+  username: mqtt_username
+  password: mqtt_password
+  client_id: $devicename
+  on_message:
+    - topic: $devicename/beep
+      qos: 0
+      then:
+        - globals.set:
+            id: msgBeep
+            value: !lambda 'return x.c_str();'
+        - logger.log:
+            level: DEBUG
+            format: 'Payload %s'
+            args: ['x.c_str()']
+        - component.update: tDisplay
+        - output.turn_on: buzzer
+        - output.ledc.set_frequency:
+            id: buzzer
+            frequency: "4400Hz"
+        - output.set_level:
+            id: buzzer
+            level: "50%"
+        - delay: 250ms
+        - output.turn_off: buzzer
+    - topic: $devicename/temperatureInterieure
+      qos: 0
+      then:
+        - logger.log:
+            level: DEBUG
+            format: 'Payload %s'
+            args: ['x.c_str()']
+        - globals.set:
+            id: gti
+            value: !lambda 'return std::stof(x);'
+ 
+web_server:
+  port: 80
+  
+i2c:
+   - id: bus_a
+     sda: GPIO21
+     scl: GPIO22
+     scan: true
+   - id: bus_b
+     sda: GPIO0
+     scl: GPIO26
+     scan: true
+
+sensor:
+  - platform: sht3xd
+    i2c_id: bus_b
+    temperature:
+      name: "Température bureau"
+      state_topic: $devicename/temperature
+      id: temperature
+    humidity:
+      name: "Humidité bureau"
+      state_topic: $devicename/humidite
+      id: humidite
+    address: 0x44
+    update_interval: 60s
+  - platform: axp192
+    model: M5STICKC
+    address: 0x34
+    i2c_id: bus_a
+    update_interval: 60s
+    battery_level:
+      name: "Niveau Batterie"
+      id: "niveau_batterie"
+      state_topic: $devicename/niveau_batterie
+  - platform: qmp6988
+    temperature:
+      name: "Température bureau 1"
+      state_topic: $devicename/temperature1
+    pressure:
+      name: "Pression bureau"
+      oversampling: 16x
+      state_topic: $devicename/pression
+      id: pression
+    address: 0x70
+    i2c_id: bus_b
+    update_interval: 60s
+    iir_filter: 2x
+  - platform: wifi_signal
+    name: Signal WiFi
+    id: signal_wifi
+    state_topic: $devicename/signal_wifi
+  - platform: uptime
+    name: "Durée de fonctionnement"
+    state_topic: $devicename/duree_fonctionnement
+  - platform: template
+    id: temperatureInterieure
+    lambda: |-
+      return id(gti);
+    update_interval: 60s
+
+binary_sensor:
+
+  - platform: gpio
+    pin:
+      number: GPIO37
+      inverted: true
+    id: btnA
+    name: "Bouton A"
+    state_topic: $devicename/boutonA
+    on_press:
+      then:
+        - light.turn_on: led1
+    on_release:
+      then:
+        - light.turn_off: led1
+        
+  - platform: gpio
+    pin:
+      number: GPIO39
+      inverted: true
+    id: btnB
+    on_press:
+      then:
+        - display.page.show_next: tDisplay
+        - component.update: tDisplay
+
+light:
+  - platform: monochromatic
+    output:  builtin_led
+    name: "Led"
+    id: led1
+    state_topic: $devicename/led/statut
+    command_topic: $devicename/led/commande
+
+output:
+  - platform: ledc
+    pin: GPIO2
+    id: buzzer
+  - platform: ledc
+    pin: GPIO10
+    inverted: true
+    id: builtin_led
+
+remote_transmitter:
+  - pin:
+      number: GPIO9
+    carrier_duty_percent: 50%
+    id: internal_ir
+
+spi:
+  clk_pin: GPIO13
+  mosi_pin: GPIO15
+
+font:
+  - file: 'arial.ttf'
+    id: fontArial
+    size: 20
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µéèçàêëö'
+
+color:
+  - id: red
+    red: 100%
+    green: 0%
+    blue: 0%
+  - id: yellow
+    red: 100%
+    green: 100%
+    blue: 0%
+  - id: green
+    red: 0%
+    green: 100%
+    blue: 0%
+  - id: blue
+    red: 0%
+    green: 0%
+    blue: 100%
+  - id: white
+    red: 100%
+    green: 100%
+    blue: 100%
+
+display:
+  - platform: st7789v
+    id: tDisplay
+    model: TTGO TDisplay 135x240
+    cs_pin: GPIO5
+    dc_pin: GPIO23
+    reset_pin: GPIO18
+    update_interval: 5s
+    rotation: 270
+    pages:
+      - id: page1
+        lambda: |-
+
+          drawHeader(it, id(fontArial));
+
+          char str[16];
+          if (id(temperatureInterieure).has_state()) {
+            sprintf(str, "%.1f °C", id(temperatureInterieure).state);
+            it.print(120, 45, id(fontArial), blue, TextAlign::CENTER, str);
+          }
+          if (id(humidite).has_state()) {
+            sprintf(str, "%.1f %%", id(humidite).state);
+            it.print(120, 70, id(fontArial), blue, TextAlign::CENTER, str);
+          }
+          if (id(pression).has_state()) {
+            sprintf(str, "%.0f hPa", id(pression).state);
+            it.print(120, 95, id(fontArial), blue, TextAlign::CENTER, str);
+          }
+
+          drawFooter(it, id(fontArial));
+
+      - id: page2
+        lambda: |-
+
+          drawHeader(it, id(fontArial));
+
+          char str[16];
+          if (id(temperature).has_state()) {
+            sprintf(str, "%.1f °C", id(temperature).state);
+            it.print(55, 25, id(fontArial), blue, TextAlign::TOP_LEFT, str);
+          }
+
+          it.graph(10, 50, id(temperature_graph));
+      
+      - id: page3
+        lambda: |-
+
+          drawHeader(it, id(fontArial));
+
+          char str[16];
+          if (id(humidite).has_state()) {
+            sprintf(str, "%.1f %%", id(humidite).state);
+            it.print(55, 25, id(fontArial), blue, TextAlign::TOP_LEFT, str);
+          }
+
+          it.graph(10, 50, id(humidity_graph));
+      
+graph:
+  - id: temperature_graph
+    sensor: temperatureInterieure
+    duration: 1h
+    width: 220
+    height: 80
+    color: blue
+    min_value: 10
+    max_value: 30
+    x_grid: 10min
+    y_grid: 5.0
+  - id: humidity_graph
+    sensor: humidite
+    duration: 1h
+    width: 220
+    height: 80
+    color: blue
+    min_value: 20
+    max_value: 80
+    x_grid: 10min
+    y_grid: 15.0
+
+time:
+  - platform: sntp
+    id: sntp_time

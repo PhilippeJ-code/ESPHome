@@ -85,7 +85,6 @@ Les commandes créées automatiquement par ESPHome apparaissent tout aussi autom
 
 ![cmds](/docs/images/cmds.png "cmds")
 
-La suite dans le répertoire docs en commençant par le répertoire M5StickCPlus
 
 
 

@@ -1,0 +1,350 @@
+substitutions:
+  
+  devicename: stick
+
+esphome:
+  name: $devicename
+  platformio_options:
+    upload_speed: 115200
+
+esp32:
+  board: m5stick-c
+  framework:
+    type: arduino
+
+logger:
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "EspHomeAP"
+    password: "12345678"
+
+captive_portal:
+
+globals:
+  - id: msgBeep
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: gti
+    type: float
+    restore_value: no
+    initial_value: '0'
+
+mqtt:
+  broker: !secret mqtt_ip
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  client_id: $devicename
+  on_message:
+    - topic: $devicename/beep
+      qos: 0
+      then:
+        - globals.set:
+            id: msgBeep
+            value: !lambda 'return x.c_str();'
+        - logger.log:
+            level: DEBUG
+            format: 'Payload %s'
+            args: ['x.c_str()']
+        - component.update: tDisplay
+        - output.turn_on: buzzer
+        - output.ledc.set_frequency:
+            id: buzzer
+            frequency: "4400Hz"
+        - output.set_level:
+            id: buzzer
+            level: "50%"
+        - delay: 250ms
+        - output.turn_off: buzzer
+    - topic: $devicename/temperatureInterieure
+      qos: 0
+      then:
+        - logger.log:
+            level: DEBUG
+            format: 'Payload %s'
+            args: ['x.c_str()']
+        - globals.set:
+            id: gti
+            value: !lambda 'return std::stof(x);'
+        - component.update: tDisplay
+ 
+web_server:
+  port: 80
+  
+time:
+  - platform: sntp
+    id: sntp_time
+
+i2c:
+   - id: bus_a
+     sda: GPIO21
+     scl: GPIO22
+     scan: true
+   - id: bus_b
+     sda: GPIO0
+     scl: GPIO26
+     scan: true
+
+sensor:
+  - platform: sht3xd
+    i2c_id: bus_b
+    temperature:
+      name: "Température bureau"
+      state_topic: $devicename/temperature
+      id: temperature
+    humidity:
+      name: "Humidité bureau"
+      state_topic: $devicename/humidite
+      id: humidite
+    address: 0x44
+    update_interval: 60s
+  - platform: axp192
+    model: M5STICKC
+    address: 0x34
+    i2c_id: bus_a
+    update_interval: 60s
+    battery_level:
+      name: "Niveau Batterie"
+      id: "niveau_batterie"
+      state_topic: $devicename/niveau_batterie
+  - platform: qmp6988
+    temperature:
+      name: "Température bureau 1"
+      state_topic: $devicename/temperature1
+    pressure:
+      name: "Pression bureau"
+      oversampling: 16x
+      state_topic: $devicename/pression
+      id: pression
+    address: 0x70
+    i2c_id: bus_b
+    update_interval: 60s
+    iir_filter: 2x
+  - platform: wifi_signal
+    name: Signal WiFi
+    id: signal_wifi
+    state_topic: $devicename/signal_wifi
+  - platform: uptime
+    name: "Durée de fonctionnement"
+    state_topic: $devicename/duree_fonctionnement
+  - platform: template
+    id: temperatureInterieure
+    lambda: |-
+      return id(gti);
+    update_interval: 60s
+
+binary_sensor:
+
+  - platform: gpio
+    pin:
+      number: GPIO37
+      inverted: true
+    id: btnA
+    name: "Bouton A"
+    state_topic: $devicename/boutonA
+    on_press:
+      then:
+        - light.turn_on: led1
+    on_release:
+      then:
+        - light.turn_off: led1
+        
+  - platform: gpio
+    pin:
+      number: GPIO39
+      inverted: true
+    id: btnB
+    on_press:
+      then:
+        - display.page.show_next: tDisplay
+        - component.update: tDisplay
+
+light:
+  - platform: monochromatic
+    output:  builtin_led
+    name: "Led"
+    id: led1
+    state_topic: $devicename/led/statut
+    command_topic: $devicename/led/commande
+
+output:
+  - platform: ledc
+    pin: GPIO2
+    id: buzzer
+  - platform: ledc
+    pin: GPIO10
+    inverted: true
+    id: builtin_led
+
+remote_transmitter:
+  - pin:
+      number: GPIO9
+    carrier_duty_percent: 50%
+    id: internal_ir
+
+spi:
+  clk_pin: GPIO13
+  mosi_pin: GPIO15
+
+font:
+  - file: 'arial.ttf'
+    id: fontArial
+    size: 20
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µéèçàêëö'
+
+color:
+  - id: red
+    red: 100%
+    green: 0%
+    blue: 0%
+  - id: yellow
+    red: 100%
+    green: 100%
+    blue: 0%
+  - id: green
+    red: 0%
+    green: 100%
+    blue: 0%
+  - id: blue
+    red: 0%
+    green: 0%
+    blue: 100%
+  - id: white
+    red: 100%
+    green: 100%
+    blue: 100%
+
+script:
+  - id: draw_header
+    then:
+      - lambda: |
+          int i = 0;
+          int j = 0;
+          int dbm = 0;
+
+          id(tDisplay).rectangle(10, 3, 38, 17, white);
+          id(tDisplay).filled_rectangle(48, 8, 3, 8, white);
+
+          if (id(niveau_batterie).has_state()) {
+            for (i=0; i<4; i++) {
+              if (id(niveau_batterie).state > 10+i*25 ) {
+                id(tDisplay).filled_rectangle(14+i*8, 7, 6, 9, white);
+              }
+            }
+          }
+
+          if (id(signal_wifi).has_state()) {
+            if (id(signal_wifi).state <= -100)
+            {
+              dbm = 0;
+            }
+            else if (id(signal_wifi).state >= -50)
+            {
+              dbm = 100;
+            } else {
+              dbm = (id(signal_wifi).state + 100);
+            }
+            for (i = 0; i < 4; i++)
+            {
+              for (j = 0; j < 3 * (i + 1); j++)
+              {
+                if (dbm > i * 25)
+                {
+                  id(tDisplay).draw_pixel_at(220+3*i, 17-j, white);
+                  id(tDisplay).draw_pixel_at(220+1+3*i, 17-j, white);
+                }
+              }
+            }
+          } else {
+            id(tDisplay).print(220, 1, id(fontArial), red, TextAlign::TOP_LEFT, "X");
+          }
+
+          id(tDisplay).strftime(150, 1, id(fontArial), white, TextAlign::TOP_LEFT, "%H:%M", id(sntp_time).now());
+          
+display:
+  - platform: st7789v
+    id: tDisplay
+    model: TTGO TDisplay 135x240
+    cs_pin: GPIO5
+    dc_pin: GPIO23
+    reset_pin: GPIO18
+    update_interval: 5s
+    rotation: 270
+    pages:
+      - id: page1
+        lambda: |-
+
+          id(draw_header).execute();
+
+          char str[16];
+          if (id(temperatureInterieure).has_state()) {
+            sprintf(str, "%.1f °C", id(temperatureInterieure).state);
+            it.print(120, 45, id(fontArial), blue, TextAlign::CENTER, str);
+          }
+          if (id(humidite).has_state()) {
+            sprintf(str, "%.1f %%", id(humidite).state);
+            it.print(120, 70, id(fontArial), blue, TextAlign::CENTER, str);
+          }
+          if (id(pression).has_state()) {
+            sprintf(str, "%.0f hPa", id(pression).state);
+            it.print(120, 95, id(fontArial), blue, TextAlign::CENTER, str);
+          }
+
+          it.print(10, 135, id(fontArial), red, TextAlign::BOTTOM_LEFT, id(msgBeep).c_str());
+
+      - id: page2
+        lambda: |-
+
+          id(draw_header).execute();
+
+          char str[16];
+          if (id(temperature).has_state()) {
+            sprintf(str, "%.1f °C", id(temperature).state);
+            it.print(55, 25, id(fontArial), blue, TextAlign::TOP_LEFT, str);
+          }
+
+          it.graph(10, 50, id(temperature_graph));
+      
+      - id: page3
+        lambda: |-
+
+          id(draw_header).execute();
+
+          char str[16];
+          if (id(humidite).has_state()) {
+            sprintf(str, "%.1f %%", id(humidite).state);
+            it.print(55, 25, id(fontArial), blue, TextAlign::TOP_LEFT, str);
+          }
+
+          it.graph(10, 50, id(humidity_graph));
+    
+graph:
+  - id: temperature_graph
+    sensor: temperatureInterieure
+    duration: 1h
+    width: 220
+    height: 80
+    color: blue
+    min_value: 10
+    max_value: 30
+    x_grid: 10min
+    y_grid: 5.0
+  - id: humidity_graph
+    sensor: humidite
+    duration: 1h
+    width: 220
+    height: 80
+    color: blue
+    min_value: 20
+    max_value: 80
+    x_grid: 10min
+    y_grid: 15.0
+

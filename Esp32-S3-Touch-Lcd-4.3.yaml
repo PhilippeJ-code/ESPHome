@@ -1,0 +1,3745 @@
+substitutions:
+  
+  devicename: jeedom-display
+
+esphome:
+  name: $devicename
+  friendly_name: Home Display
+  platformio_options:
+    build_flags: "-DBOARD_HAS_PSRAM"
+    board_build.arduino.memory_type: qio_opi
+    board_build.flash_mode: dio
+    board_upload.maximum_ram_size: 524288
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+
+      CONFIG_FREERTOS_HZ: '1000'
+      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: y
+      CONFIG_ESP32S3_DATA_CACHE_64KB: y
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: y
+      CONFIG_SPIRAM_MODE_OCT: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+      CONFIG_ESPTOOLPY_FLASHSIZE_8MB: y
+      CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE: y
+      CONFIG_TASK_WDT_CHECK_IDLE_TASK_CPU0: n
+      CONFIG_TASK_WDT_CHECK_IDLE_TASK_CPU1: n
+      CONFIG_COMPILER_OPTIMIZATION_PERF: y
+
+#
+# Bus I2C
+#
+i2c:
+  sda: GPIO08
+  scl: GPIO09
+  scan: false
+  id: bus_a
+
+#
+# IO Expander
+#
+ch422g:
+  - id: ch422g_hub
+
+switch:
+  #
+  # Rétroéclairage tft
+  #
+  - platform: gpio
+    id: display_backlight
+    name: "Backlight"
+    pin:
+      ch422g: ch422g_hub
+      number: 2
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_ON
+
+sensor:
+  #
+  # Force du signal wifi
+  #
+  - platform: wifi_signal
+    name: "rssi"
+  #
+  # Disponibilité
+  #
+  - platform: uptime
+    name: "uptime"
+
+#
+# Active la psram
+#
+psram:
+  mode: octal
+  speed: 80MHz
+
+#
+# Active le log
+#
+logger:
+
+# 
+# Mise à jour Over The Air
+#
+ota:
+  - platform: esphome
+    password: ""
+
+#
+# Wifi
+#
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  #
+  # Si Wifi indisponible : Access Portal
+  #
+  ap:
+    ssid: "EspHomeAP"
+    password: "12345678"
+
+captive_portal:
+
+#
+# Mqtt et ses messages reçus
+#
+mqtt:
+  broker: !secret mqtt_ip
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  client_id: $devicename
+  on_message:
+    #
+    # Lumière du bureau
+    #
+    - topic: $devicename/light/desk/state
+      payload: '0'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_bureau_id
+            src: bulb_off_image
+    - topic: $devicename/light/desk/state
+      payload: '1'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_bureau_id
+            src: bulb_on_image
+    #
+    # Lumière salle à manger
+    #
+    - topic: $devicename/light/sam/state
+      payload: '0'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_sam_id
+            src: bulb_off_image
+    - topic: $devicename/light/sam/state
+      payload: '1'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_sam_id
+            src: bulb_on_image
+    #
+    # Etat du bruleur
+    #
+    - topic: $devicename/heating/burner/state
+      qos: 0
+      payload: '0'
+      then:
+        - lvgl.image.update:
+            id: id_fire
+            image_recolor: 0xf0f0f0
+            image_recolor_opa: COVER
+    - topic: $devicename/heating/burner/state
+      qos: 0
+      payload: '1'
+      then:
+        - lvgl.image.update:
+            id: id_fire
+            image_recolor: 0x0080ff
+            image_recolor_opa: COVER
+    #
+    # Etat de la consigne
+    #
+    - topic: $devicename/heating/order/state
+      qos: 0
+      then:
+        - lvgl.arc.update:
+            id: id_arc_consigne
+            value: !lambda 'return std::stof(x);'
+    #
+    # Etat du programme de chauffe
+    #
+    - topic: $devicename/heating/program/state
+      qos: 0
+      payload: 'reduced'
+      then:
+        - lvgl.label.update:
+            id: id_label_consigne
+            text_color: 0x0000ff
+    - topic: $devicename/heating/program/state
+      qos: 0
+      payload: 'normal'
+      then:
+        - lvgl.label.update:
+            id: id_label_consigne
+            text_color: 0xFF7F27
+    - topic: $devicename/heating/program/state
+      qos: 0
+      payload: 'comfort'
+      then:
+        - lvgl.label.update:
+            id: id_label_consigne
+            text_color: 0xff0000
+    #
+    # Etat de la demande eau chaude
+    #
+    - topic: $devicename/heating/hotwater/state
+      qos: 0
+      payload: '0'
+      then:
+        - lvgl.image.update:
+            id: id_image_hotwater
+            image_recolor: 0xffffff
+            image_recolor_opa: COVER
+    - topic: $devicename/heating/hotwater/state
+      qos: 0
+      payload: '1'
+      then:
+        - lvgl.image.update:
+            id: id_image_hotwater
+            image_recolor: 0xff0000
+            image_recolor_opa: COVER            
+    #
+    # Température eau chaude
+    #
+    - topic: $devicename/heating/hotwater/temperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_temp_eauchaude
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température intérieure
+    #
+    - topic: $devicename/heating/interiortemperature/state
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_temp_interieure
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température extérieure
+    #
+    - topic: $devicename/heating/exteriortemperature/state
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_temp_exterieure
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Consommation gaz un array de 7 floats séparés par des virgules
+    #
+    - topic: $devicename/heating/gas/consumption
+      qos: 0
+      then:
+        - globals.set:
+            id: gHeatingGasConsumption1
+            value: !lambda 'float fl[6]; if (sscanf(x.c_str(), "%f,%f,%f,%f,%f,%f", &fl[0], &fl[1], &fl[2], &fl[3], &fl[4], &fl[5]) == 6 ) { return fl[5]; } else { return 0.0f; }'
+        - globals.set:
+            id: gHeatingGasConsumption2
+            value: !lambda 'float fl[6]; if (sscanf(x.c_str(), "%f,%f,%f,%f,%f,%f", &fl[0], &fl[1], &fl[2], &fl[3], &fl[4], &fl[5]) == 6 ) { return fl[4]; } else { return 0.0f; }'
+        - globals.set:
+            id: gHeatingGasConsumption3
+            value: !lambda 'float fl[6]; if (sscanf(x.c_str(), "%f,%f,%f,%f,%f,%f", &fl[0], &fl[1], &fl[2], &fl[3], &fl[4], &fl[5]) == 6 ) { return fl[3]; } else { return 0.0f; }'
+        - globals.set:
+            id: gHeatingGasConsumption4
+            value: !lambda 'float fl[6]; if (sscanf(x.c_str(), "%f,%f,%f,%f,%f,%f", &fl[0], &fl[1], &fl[2], &fl[3], &fl[4], &fl[5]) == 6 ) { return fl[2]; } else { return 0.0f; }'
+        - globals.set:
+            id: gHeatingGasConsumption5
+            value: !lambda 'float fl[6]; if (sscanf(x.c_str(), "%f,%f,%f,%f,%f,%f", &fl[0], &fl[1], &fl[2], &fl[3], &fl[4], &fl[5]) == 6 ) { return fl[1]; } else { return 0.0f; }'
+        - globals.set:
+            id: gHeatingGasConsumption6
+            value: !lambda 'float fl[6]; if (sscanf(x.c_str(), "%f,%f,%f,%f,%f,%f", &fl[0], &fl[1], &fl[2], &fl[3], &fl[4], &fl[5]) == 6 ) { return fl[0]; } else { return 0.0f; }'
+        - script.execute: gas_consumption_update
+    #
+    # Chauffage terrarium
+    #
+    - topic: $devicename/heating/terrarium/state
+      payload: '0'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_terrarium_id
+            src: radiator_off_image
+    - topic: $devicename/heating/terrarium/state
+      payload: '1'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_terrarium_id
+            src: radiator_on_image
+    #
+    # Chauffage salle de bain
+    # 
+    - topic: $devicename/heating/sdb/state
+      payload: '0'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_sdb_id
+            src: radiator_off_image
+    - topic: $devicename/heating/sdb/state
+      payload: '1'
+      qos: 0
+      then:
+        - lvgl.image.update:
+            id: img_sdb_id
+            src: radiator_on_image
+    #
+    # Température salle de bain
+    #
+    - topic: $devicename/home/bathroom/temperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_temperature_sdb
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Humidité salle de bain
+    #
+    - topic: $devicename/home/bathroom/humidity
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_humidite_sdb
+            text:
+              format: "%.1f %%"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température cuisine
+    #
+    - topic: $devicename/home/kitchen/temperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_temperature_cuisine
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Humidité cuisine
+    #
+    - topic: $devicename/home/kitchen/humidity
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_humidite_cuisine
+            text:
+              format: "%.1f %%"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température chambre
+    #
+    - topic: $devicename/home/bedroom/temperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_temperature_chambre
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Humidité chambre
+    #
+    - topic: $devicename/home/bedroom/humidity
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_humidite_chambre
+            text:
+              format: "%.1f %%"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température salle à manger
+    #
+    - topic: $devicename/home/livingroom/temperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_temperature_salon
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Humidité salle à manger
+    #
+    - topic: $devicename/home/livingroom/humidity
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_humidite_salon
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Code météo du jour
+    #
+    - topic: $devicename/meteo/day/state
+      qos: 0
+      then:
+        - globals.set:
+            id: gMeteoDay
+            value: !lambda 'return std::stof(x);'
+        - script.execute: meteo_day_update
+    #
+    # Code météo du jour + 1
+    #
+    - topic: $devicename/meteo/day_1/state
+      qos: 0
+      then:
+        - globals.set:
+            id: gMeteoDay_1
+            value: !lambda 'return std::stof(x);'
+        - script.execute: meteo_day_1_update
+    #
+    # Code météo du jour + 2
+    #
+    - topic: $devicename/meteo/day_2/state
+      qos: 0
+      then:
+        - globals.set:
+            id: gMeteoDay_2
+            value: !lambda 'return std::stof(x);'
+        - script.execute: meteo_day_2_update
+    #
+    # Code météo du jour + 3
+    #
+    - topic: $devicename/meteo/day_3/state
+      qos: 0
+      then:
+        - globals.set:
+            id: gMeteoDay_3
+            value: !lambda 'return std::stof(x);'
+        - script.execute: meteo_day_3_update
+    #
+    # Libellé météo du jour
+    #
+    - topic: $devicename/meteo/day/stringstate
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_stringstate
+            text: !lambda 'return x;'
+    #
+    # Température du jour
+    #
+    - topic: $devicename/meteo/day/temperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_temperature
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température min du jour
+    #
+    - topic: $devicename/meteo/day/mintemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_mintemperature
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température max du jour
+    #
+    - topic: $devicename/meteo/day/maxtemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_maxtemperature
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température min du jour + 1
+    #
+    - topic: $devicename/meteo/day_1/mintemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_day_1_min_temp
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température max du jour + 1
+    #
+    - topic: $devicename/meteo/day_1/maxtemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_day_1_max_temp
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température min du jour + 2
+    #
+    - topic: $devicename/meteo/day_2/mintemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_day_2_min_temp
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température max du jour + 2
+    #
+    - topic: $devicename/meteo/day_2/maxtemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_day_2_max_temp
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température min du jour + 3
+    #
+    - topic: $devicename/meteo/day_3/mintemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_day_3_min_temp
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Température max du jour + 3
+    #
+    - topic: $devicename/meteo/day_3/maxtemperature
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_label_day_3_max_temp
+            text:
+              format: "%.1f °C"
+              args:
+                - 'std::stof(x)'
+    #
+    # Humidité du jour
+    #
+    - topic: $devicename/meteo/day/humidity
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_humidity
+            text:
+              format: "%.1f %%"
+              args:
+                - 'std::stof(x)'
+    #
+    # Pression atmosphérique du jour
+    #
+    - topic: $devicename/meteo/day/pressure
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_pressure
+            text:
+              format: "%.0f mb"
+              args:
+                - 'std::stof(x)'
+    #
+    # Vitesse du vent
+    #
+    - topic: $devicename/meteo/day/windspeed
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_windspeed
+            text:
+              format: "%.1f km/h"
+              args:
+                - 'std::stof(x)'
+    #
+    # Direction du vent
+    #
+    - topic: $devicename/meteo/day/winddirection
+      qos: 0
+      then:
+        - lvgl.indicator.update:
+            id: id_wind_direction
+            value: !lambda 'return std::stof(x);'
+        - lvgl.label.update:
+            id: id_label_wind_direction
+            text:
+              format: "%.0f°"
+              args: [ 'std::stof(x)' ]
+        - lvgl.label.update:
+            id: id_label_string_wind_direction
+            text:
+              format: "%s"
+              args:
+                - '(new const char *[9]{"Nord", "Nord-Est", "Est", "Sud-Est", "Sud", "Sud-Ouest", "Ouest", "Nord-Ouest", "Nord"})[(int)((std::stof(x)+22.5)/45)]'
+    #
+    # Lever du soleil
+    #
+    - topic: $devicename/meteo/day/sunrise
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_sunrise
+            text:
+              format: "%02d:%02d"
+              args:
+                - '(int)(std::stof(x))/100'
+                - '(int)(std::stof(x))%100'
+    #
+    # Coucher du soleil
+    #
+    - topic: $devicename/meteo/day/sunset
+      qos: 0
+      then:
+        - lvgl.label.update:
+            id: id_sunset
+            text:
+              format: "%02d:%02d"
+              args:
+                - '(int)(std::stof(x))/100'
+                - '(int)(std::stof(x))%100'
+#
+# Variables globales
+#
+globals:
+  - id: gMeteoDay
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gMeteoDay_1
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gMeteoDay_2
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gMeteoDay_3
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gHeatingGasConsumption1
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gHeatingGasConsumption2
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gHeatingGasConsumption3
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gHeatingGasConsumption4
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gHeatingGasConsumption5
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gHeatingGasConsumption6
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: gWeek1
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: gWeek2
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: gWeek3
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: gWeek4
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: gWeek5
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: gWeek6
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+#
+# Gestion de l'heure
+#
+time:
+  - platform: sntp 
+    id: time_comp
+    on_time_sync:
+      then:
+        - script.execute: time_update
+        - script.execute: day_update
+    on_time:
+      #
+      # Toutes les minutes mise à jour de l'heure
+      #
+      - seconds: 0
+        minutes: /1
+        then:
+          - script.execute: time_update
+      #
+      # Toutes les heures mise à jour de la journée
+      #
+      - seconds: 0
+        minutes: 0
+        hours: /1
+        then:
+          - script.execute: day_update
+
+#
+# Affichage tft
+#
+display:
+  - platform: rpi_dpi_rgb
+    id: my_display
+    auto_clear_enabled: false
+    update_interval: never
+    color_order: RGB
+    pclk_frequency: 14MHz
+    dimensions:
+      width: 800
+      height: 480
+    de_pin:
+      number: 5
+    hsync_pin:
+      number: 46
+      ignore_strapping_warning: true
+    vsync_pin:
+      number: 3
+      ignore_strapping_warning: true
+    pclk_pin: 7
+    pclk_inverted: false
+    hsync_back_porch: 10 #30
+    hsync_front_porch: 20 #210 
+    hsync_pulse_width: 10 #30
+    vsync_back_porch: 10 #4
+    vsync_front_porch: 10 #4
+    vsync_pulse_width: 10 #4
+    data_pins:
+      red:
+        - 1         #r3
+        - 2         #r4
+        - 42        #r5
+        - 41        #r6
+        - 40        #r7
+      blue:
+        - 14        #b3
+        - 38        #b4
+        - 18        #b5
+        - 17        #b6
+        - 10        #b7
+      green:
+        - 39        #g2
+        - 0         #g3
+        - 45        #g4
+        - 48        #g5
+        - 47        #g6
+        - 21        #g7
+#
+# Ecran tactile
+#
+touchscreen:
+  platform: gt911
+  id: my_touch
+  interrupt_pin: GPIO4
+  reset_pin:
+    ch422g: ch422g_hub
+    number: 1
+    mode: OUTPUT
+  on_release:
+    then:
+      - if:
+          condition: lvgl.is_paused
+          then:
+            - logger.log:
+                format: "Lvgl Release"
+            #- switch.turn_on: display_backlight
+            - lvgl.resume:
+            - lvgl.widget.redraw:
+#
+# Polices
+#
+font:
+  - file: 'fonts\arial.ttf'
+    id: fontArial20
+    size: 20
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µéèçàêëö'
+  - file: 'fonts\arial.ttf'
+    id: fontArial40
+    size: 40
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µéèçàêëö'
+#
+# Images
+#
+image:
+  - file: images\bulb_on.png
+    id: bulb_on_image
+    type: TRANSPARENT_BINARY
+  - file: images\bulb_off.png
+    id: bulb_off_image
+    type: TRANSPARENT_BINARY
+  - file: images\radiator_on.png
+    id: radiator_on_image
+    type: TRANSPARENT_BINARY
+  - file: images\radiator_off.png
+    id: radiator_off_image
+    type: TRANSPARENT_BINARY
+  - file: images\day\113.png
+    id: img_day_113
+    type: RGB565
+    use_transparency: true
+  - file: images\day\116.png
+    id: img_day_116
+    type: RGB565
+    use_transparency: true
+  - file: images\day\119.png
+    id: img_day_119
+    type: RGB565
+    use_transparency: true
+  - file: images\day\122.png
+    id: img_day_122
+    type: RGB565
+    use_transparency: true
+  - file: images\day\143.png
+    id: img_day_143
+    type: RGB565
+    use_transparency: true
+  - file: images\day\176.png
+    id: img_day_176
+    type: RGB565
+    use_transparency: true
+  - file: images\day\179.png
+    id: img_day_179
+    type: RGB565
+    use_transparency: true
+  - file: images\day\182.png
+    id: img_day_182
+    type: RGB565
+    use_transparency: true
+  - file: images\day\185.png
+    id: img_day_185
+    type: RGB565
+    use_transparency: true
+  - file: images\day\200.png
+    id: img_day_200
+    type: RGB565
+    use_transparency: true
+  - file: images\day\227.png
+    id: img_day_227
+    type: RGB565
+    use_transparency: true
+  - file: images\day\230.png
+    id: img_day_230
+    type: RGB565
+    use_transparency: true
+  - file: images\day\248.png
+    id: img_day_248
+    type: RGB565
+    use_transparency: true
+  - file: images\day\260.png
+    id: img_day_260
+    type: RGB565
+    use_transparency: true
+  - file: images\day\263.png
+    id: img_day_263
+    type: RGB565
+    use_transparency: true
+  - file: images\day\266.png
+    id: img_day_266
+    type: RGB565
+    use_transparency: true
+  - file: images\day\281.png
+    id: img_day_281
+    type: RGB565
+    use_transparency: true
+  - file: images\day\284.png
+    id: img_day_284
+    type: RGB565
+    use_transparency: true
+  - file: images\day\293.png
+    id: img_day_293
+    type: RGB565
+    use_transparency: true
+  - file: images\day\296.png
+    id: img_day_296
+    type: RGB565
+    use_transparency: true
+  - file: images\day\299.png
+    id: img_day_299
+    type: RGB565
+    use_transparency: true
+  - file: images\day\302.png
+    id: img_day_302
+    type: RGB565
+    use_transparency: true
+  - file: images\day\305.png
+    id: img_day_305
+    type: RGB565
+    use_transparency: true
+  - file: images\day\308.png
+    id: img_day_308
+    type: RGB565
+    use_transparency: true
+  - file: images\day\311.png
+    id: img_day_311
+    type: RGB565
+    use_transparency: true
+  - file: images\day\314.png
+    id: img_day_314
+    type: RGB565
+    use_transparency: true
+  - file: images\day\317.png
+    id: img_day_317
+    type: RGB565
+    use_transparency: true
+  - file: images\day\320.png
+    id: img_day_320
+    type: RGB565
+    use_transparency: true
+  - file: images\day\323.png
+    id: img_day_323
+    type: RGB565
+    use_transparency: true
+  - file: images\day\326.png
+    id: img_day_326
+    type: RGB565
+    use_transparency: true
+  - file: images\day\329.png
+    id: img_day_329
+    type: RGB565
+    use_transparency: true
+  - file: images\day\332.png
+    id: img_day_332
+    type: RGB565
+    use_transparency: true
+  - file: images\day\335.png
+    id: img_day_335
+    type: RGB565
+    use_transparency: true
+  - file: images\day\338.png
+    id: img_day_338
+    type: RGB565
+    use_transparency: true
+  - file: images\day\350.png
+    id: img_day_350
+    type: RGB565
+    use_transparency: true
+  - file: images\day\353.png
+    id: img_day_353
+    type: RGB565
+    use_transparency: true
+  - file: images\day\356.png
+    id: img_day_356
+    type: RGB565
+    use_transparency: true
+  - file: images\day\359.png
+    id: img_day_359
+    type: RGB565
+    use_transparency: true
+  - file: images\day\362.png
+    id: img_day_362
+    type: RGB565
+    use_transparency: true
+  - file: images\day\365.png
+    id: img_day_365
+    type: RGB565
+    use_transparency: true
+  - file: images\day\368.png
+    id: img_day_368
+    type: RGB565
+    use_transparency: true
+  - file: images\day\371.png
+    id: img_day_371
+    type: RGB565
+    use_transparency: true
+  - file: images\day\374.png
+    id: img_day_374
+    type: RGB565
+    use_transparency: true
+  - file: images\day\377.png
+    id: img_day_377
+    type: RGB565
+    use_transparency: true
+  - file: images\day\386.png
+    id: img_day_386
+    type: RGB565
+    use_transparency: true
+  - file: images\day\389.png
+    id: img_day_389
+    type: RGB565
+    use_transparency: true
+  - file: images\day\392.png
+    id: img_day_392
+    type: RGB565
+    use_transparency: true
+  - file: images\day\395.png
+    id: img_day_395
+    type: RGB565
+    use_transparency: true
+  - file: images\sun.png
+    id: img_sun
+    type: TRANSPARENT_BINARY
+  - file: images\thermometer.png
+    id: img_thermometer
+    type: TRANSPARENT_BINARY
+  - file: images\humidity.png
+    id: img_humidity
+    type: TRANSPARENT_BINARY
+  - file: images\fire.png
+    id: img_fire
+    type: TRANSPARENT_BINARY
+  - file: images\shower.png
+    id: img_hotwater
+    type: TRANSPARENT_BINARY
+#   
+# Lvgl display
+#
+lvgl:
+  on_idle:
+    timeout: 120s
+    then:
+      - logger.log:
+          format: "Lvgl Pause"
+      #- switch.turn_off: display_backlight
+      - lvgl.pause:
+          show_snow: true
+
+  style_definitions:
+    - id: status_style
+      text_font: fontArial20
+      text_color: 0x000000
+      bg_opa: TRANSP
+      radius: 4
+      pad_all: 2
+    - id: image_style
+      text_color: 0xffffff
+    - id: tab_style
+      bg_color: 0xf0f0f0
+      bg_opa: COVER
+  #
+  # Affichage commun à tous les onglets
+  #
+  top_layer:
+    widgets:
+      label:
+        styles: status_style
+        id: hour_minute_label
+        align: bottom_right
+        text_color: 0xa0a0a0
+        text_font: fontArial20
+        text: " "
+        x: -10
+        y: -10
+
+  widgets:
+    #
+    # Les onglets
+    #
+    tabview:
+      id: tabview_id
+      position: top
+      tab_style:
+        items:
+          text_color: 0xa0a0a0
+          text_font: fontArial20
+      tabs:
+        #
+        # Onglet résumé
+        #
+        - name: Résumé
+          id: tabview_tab_0
+        #
+        # Onglet lumières
+        #
+        - name: Lumières
+          id: tabview_tab_1
+          styles: tab_style        
+          widgets:
+            #
+            # Lumière bureau
+            #
+            - button:
+                x: 10
+                y: 10
+                width: 100
+                height: 120
+                id: btn_bureau_id
+                on_press:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/desk/command
+                        payload: "Press"
+                on_release:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/desk/command
+                        payload: "Release"
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "Bureau"
+                      text_font: fontArial20
+                      y: 8
+                  - image:
+                      align: center
+                      src: bulb_off_image
+                      id: img_bureau_id
+                      y: -8
+                      image_recolor: 0xffffff
+                      image_recolor_opa: 100%
+            #
+            # Lumière salle à manger
+            #
+            - button:
+                x: 120
+                y: 10
+                width: 100
+                height: 120
+                id: btn_sam_id
+                on_press:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/sam/command
+                        payload: "Press"
+                on_release:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/sam/command
+                        payload: "Release"
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "S.Manger"
+                      text_font: fontArial20
+                      y: 8
+                  - image:
+                      align: center
+                      src: bulb_off_image
+                      id: img_sam_id
+                      y: -8
+                      image_recolor: 0xffffff
+                      image_recolor_opa: 100%
+        #
+        # Onglet chauffage
+        #
+        - name: Chauffage
+          id: tabview_tab_2
+          styles: tab_style        
+          widgets:
+            #
+            # Bruleur en fonctionnement ou pas
+            #
+            - image:
+                id: id_fire
+                src: img_fire                
+                x: 10
+                y: 10
+                image_recolor: 0x0080ff
+                image_recolor_opa: 100%
+            #
+            # Consommation gaz semaine 6
+            #
+            - obj:
+                x: 35
+                y: 90
+                height: 220
+                width: 50
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                widgets:
+                    - label:
+                        id: id_day_conso_6
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: top_mid
+                    - bar:
+                        id: id_bar_conso_6
+                        height: 70%
+                        width: 20
+                        align: center
+                        min_value: 0
+                        max_value: 150
+                        value: 0
+                    - label:
+                        id: id_string_conso_6
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: bottom_mid
+            #
+            # Consommation gaz semaine 5
+            #
+            - obj:
+                x: 90
+                y: 90
+                height: 220
+                width: 50
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                widgets:
+                    - label:
+                        id: id_day_conso_5
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: top_mid
+                    - bar:
+                        id: id_bar_conso_5
+                        height: 70%
+                        width: 20
+                        align: center
+                        min_value: 0
+                        max_value: 150
+                        value: 0
+                    - label:
+                        id: id_string_conso_5
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: bottom_mid
+            #
+            # Consommation gaz semaine 4
+            #
+            - obj:
+                x: 145
+                y: 90
+                height: 220
+                width: 50
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                widgets:
+                    - label:
+                        id: id_day_conso_4
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: top_mid
+                    - bar:
+                        id: id_bar_conso_4
+                        height: 70%
+                        width: 20
+                        align: center
+                        min_value: 0
+                        max_value: 150
+                        value: 0
+                    - label:
+                        id: id_string_conso_4
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: bottom_mid
+            #
+            # Consommation gaz semaine 3
+            #
+            - obj:
+                x: 200
+                y: 90
+                height: 220
+                width: 50
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                widgets:
+                    - label:
+                        id: id_day_conso_3
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: top_mid
+                    - bar:
+                        id: id_bar_conso_3
+                        height: 70%
+                        width: 20
+                        align: center
+                        min_value: 0
+                        max_value: 150
+                        value: 0
+                    - label:
+                        id: id_string_conso_3
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: bottom_mid
+            #
+            # Consommation gaz semaine 2
+            #
+            - obj:
+                x: 255
+                y: 90
+                height: 220
+                width: 50
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                widgets:
+                    - label:
+                        id: id_day_conso_2
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: top_mid
+                    - bar:
+                        id: id_bar_conso_2
+                        height: 70%
+                        width: 20
+                        align: center
+                        min_value: 0
+                        max_value: 150
+                        value: 0
+                    - label:
+                        id: id_string_conso_2
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: bottom_mid
+            #
+            # Consommation gaz semaine 1
+            #
+            - obj:
+                x: 310
+                y: 90
+                height: 220
+                width: 50
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                widgets:
+                    - label:
+                        id: id_day_conso_1
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: top_mid
+                    - bar:
+                        id: id_bar_conso_1
+                        height: 70%
+                        width: 20
+                        align: center
+                        min_value: 0
+                        max_value: 150
+                        value: 0
+                    - label:
+                        id: id_string_conso_1
+                        text: " "
+                        text_font: fontArial20
+                        text_color: 0xa0a0a0
+                        align: bottom_mid
+            #
+            # Libellé consommation gaz
+            #
+            - label:
+                text: "m3/semaine"
+                text_font: fontArial20
+                text_color: 0xa0a0a0
+                x: 60
+                y: 320
+            #
+            # Consigne température, température intérieure
+            #
+            - obj:
+                height: 210
+                width: 210
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                align: center
+                x: 100
+                widgets:
+                  - arc:
+                      id: id_arc_consigne
+                      width: 90%
+                      height: 90%
+                      align: center
+                      adjustable: true
+                      on_value:
+                        then:
+                          - lvgl.label.update:
+                              id: id_label_consigne
+                              text:
+                                format: "%.0f °C"
+                                args: [ x ]
+                      on_release:
+                        then:
+                          - mqtt.publish:
+                              topic: $devicename/button/heating/order
+                              payload: !lambda 'return to_string(x);'
+                      scroll_on_focus: true
+                      value: 10
+                      min_value: 10
+                      max_value: 30
+                      arc_color: 0xFF0000
+                      indicator:
+                        arc_color: 0x808080
+                  - label:
+                      id: id_label_consigne
+                      text: "10 °C"
+                      text_font: fontArial40
+                      text_color: 0xa0a0a0
+                      align: center
+                      y: -10                  
+                  - label:
+                      id: id_label_temp_interieure
+                      text: "10 °C"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: center
+                      y: 25                  
+            #
+            # Température extérieure
+            #
+            - obj:
+                height: 60
+                width: 210
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                align: center
+                x: 100
+                y: 110
+                widgets:
+                  - label:
+                      id: id_label_temp_exterieure
+                      text: " "
+                      text_font: fontArial40
+                      text_color: 0xa0a0a0
+                      align: center
+            - label:
+                id: id_label_temp_eauchaude
+                text: " "
+                text_font: fontArial40
+                text_color: 0xa0a0a0
+                x: 500
+                y: 30
+            #
+            # Demande eau chaude
+            # 
+            - button:
+                x: 650
+                y: 10
+                width: 100
+                height: 100
+                id: id_button_hotwater
+                on_press:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/hotwater/command
+                        payload: "Press"
+                on_release:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/hotwater/command
+                        payload: "Release"
+                widgets:
+                  - image:
+                      align: center
+                      src: img_hotwater
+                      id: id_image_hotwater
+                      image_recolor: 0xffffff
+                      image_recolor_opa: 100%
+            #
+            # Chauffage terrarium
+            #
+            - button:
+                x: 650
+                y: 120
+                width: 100
+                height: 120
+                id: btn_terrarium_id
+                on_press:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/terrarium/command
+                        payload: "Press"
+                on_release:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/terrarium/command
+                        payload: "Release"
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "Terrarium"
+                      text_font: fontArial20
+                      y: 8
+                  - image:
+                      align: center
+                      src: radiator_off_image
+                      id: img_terrarium_id
+                      y: -8
+                      image_recolor: 0xffffff
+                      image_recolor_opa: 100% 
+
+            #
+            # Chauffage sdb
+            #
+            - button:
+                x: 650
+                y: 250
+                width: 100
+                height: 120
+                id: btn_sdb_id
+                on_press:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/sdb/command
+                        payload: "Press"
+                on_release:
+                  then:
+                    - mqtt.publish:
+                        topic: $devicename/button/sdb/command
+                        payload: "Release"
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "Sdb"
+                      text_font: fontArial20
+                      y: 8
+                  - image:
+                      align: center
+                      src: radiator_off_image
+                      id: img_sdb_id
+                      y: -8
+                      image_recolor: 0xffffff
+                      image_recolor_opa: 100% 
+        #
+        # Onglet températures
+        #
+        - name: Températures
+          id: tabview_tab_3
+          styles: tab_style        
+          widgets:
+            #
+            # Température et humidité salle de bain
+            #
+            - obj:
+                x: 10
+                y: 10
+                width: 120
+                height: 120
+                scrollbar_mode: "off"
+                scrollable: false
+                #bg_color: 0xFF7F27
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "SdB"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      y: 8
+                  - image:
+                      src: img_thermometer
+                      x: -15
+                      y: -5
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_temperature_sdb
+                      x: 15
+                      y: -5
+                      text: "0 °C"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                  - image:
+                      src: img_humidity
+                      x: -15
+                      y: 25
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_humidite_sdb
+                      x: 15
+                      y: 25
+                      text: "0 %"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+            #
+            # Température et humidité cuisine
+            #
+            - obj:
+                x: 140
+                y: 10
+                width: 120
+                height: 120
+                scrollbar_mode: "off"
+                scrollable: false
+                #bg_color: 0xFF7F27
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "Cuisine"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      y: 8
+                  - image:
+                      src: img_thermometer
+                      x: -15
+                      y: -5
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_temperature_cuisine
+                      x: 15
+                      y: -5
+                      text: "0 °C"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                  - image:
+                      src: img_humidity
+                      x: -15
+                      y: 25
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_humidite_cuisine
+                      x: 15
+                      y: 25
+                      text: "0 %"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+            #
+            # Température et humidité chambre
+            #
+            - obj:
+                x: 270
+                y: 10
+                width: 120
+                height: 120
+                scrollbar_mode: "off"
+                scrollable: false
+                #bg_color: 0xFF7F27
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "Chambre"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      y: 8
+                  - image:
+                      src: img_thermometer
+                      x: -15
+                      y: -5
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_temperature_chambre
+                      x: 15
+                      y: -5
+                      text: "0 °C"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                  - image:
+                      src: img_humidity
+                      x: -15
+                      y: 25
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_humidite_chambre
+                      x: 15
+                      y: 25
+                      text: "0 %"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+            #
+            # Température et humidité salon
+            #
+            - obj:
+                x: 400
+                y: 10
+                width: 120
+                height: 120
+                scrollbar_mode: "off"
+                scrollable: false
+                #bg_color: 0xFF7F27
+                widgets:
+                  - label:
+                      align: bottom_mid
+                      text: "Salon"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      y: 8
+                  - image:
+                      src: img_thermometer
+                      x: -15
+                      y: -5
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_temperature_salon
+                      x: 15
+                      y: -5
+                      text: "0 °C"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                  - image:
+                      src: img_humidity
+                      x: -15
+                      y: 25
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_humidite_salon
+                      x: 15
+                      y: 25
+                      text: "0 %"
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+        #
+        # Onglet météo
+        #
+        - name: Météo
+          id: tabview_tab_4
+          styles: tab_style        
+          widgets:
+            #
+            # Image météo du jour
+            #
+            - image:
+                x: 30
+                y: 30
+                src: img_day_113
+                id: id_meteo_day
+                zoom: 2
+            #
+            # Température du jour 
+            #
+            - obj:
+                x: 160
+                y: 15
+                height: 40
+                width: 140
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_temperature
+                      align: center
+                      text: " "
+                      text_font: fontArial40
+                      text_color: 0xa0a0a0
+            #
+            # Températures min/max du jour
+            #
+            - obj:
+                x: 160
+                y: 70
+                height: 20
+                width: 140
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_mintemperature
+                      align: center
+                      x: -40
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+                  - label:
+                      id: id_maxtemperature
+                      align: center
+                      x: 40
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+            #
+            # Humidité du jour
+            #
+            - obj:
+                x: 160
+                y: 95
+                height: 20
+                width: 140
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_humidity
+                      align: center
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0                      
+            #
+            # Heures de lever et coucher du soleil
+            #
+            - obj:
+                x: 10
+                y: 130
+                height: 20
+                width: 300
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_sunrise
+                      align: center
+                      text: " "
+                      x: -50
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+                  - image:
+                      src: img_sun
+                      align: center                
+                      image_recolor: 0xa0a0a0
+                      image_recolor_opa: 100%
+                  - label:
+                      id: id_sunset
+                      align: center
+                      x: 50
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+            #
+            # Libellé météo du jour
+            #
+            - obj:
+                x: 10
+                y: 160
+                height: 20
+                width: 300
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_stringstate
+                      align: center
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+            #
+            # Pression atmosphérique 
+            #
+            - obj:
+                x: 10
+                y: 180
+                height: 20
+                width: 300
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_pressure
+                      align: center
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+            #
+            # Direction du vent
+            #
+            - obj:
+                x: 330
+                y: 0
+                height: 170
+                width: 170
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - meter:
+                      height: 100%
+                      width: 100%
+                      align: center
+                      bg_opa: TRANSP
+                      text_color: 0xa0a0a0
+                      border_width: 0
+                      outline_width: 0
+                      scales:
+                        - ticks:
+                            count: 0
+                          range_from: 0
+                          range_to: 360
+                          angle_range: 360
+                          rotation: 270
+                          indicators:
+                            - line:
+                                id: id_wind_direction
+                                width: 3
+                                color: 0xFF7F27
+                                r_mod: 15
+                            - arc:
+                                color: 0xa0a0a0
+                                r_mod: 10
+                                width: 10
+                                start_value: 0
+                                end_value: 23
+                            - arc:
+                                color: 0x0080ff
+                                r_mod: 10
+                                width: 10
+                                start_value: 23
+                                end_value: 68
+                            - arc:
+                                color: 0xa0a0a0
+                                r_mod: 10
+                                width: 10
+                                start_value: 68
+                                end_value: 113
+                            - arc:
+                                color: 0x0080ff
+                                r_mod: 10
+                                width: 10
+                                start_value: 113
+                                end_value: 158
+                            - arc:
+                                color: 0xa0a0a0
+                                r_mod: 10
+                                width: 10
+                                start_value: 158
+                                end_value: 203
+                            - arc:
+                                color: 0x0080ff
+                                r_mod: 10
+                                width: 10
+                                start_value: 203
+                                end_value: 248
+                            - arc:
+                                color: 0xa0a0a0
+                                r_mod: 10
+                                width: 10
+                                start_value: 248
+                                end_value: 293
+                            - arc:
+                                color: 0x0080ff
+                                r_mod: 10
+                                width: 10
+                                start_value: 293
+                                end_value: 338
+                            - arc:
+                                color: 0xa0a0a0
+                                r_mod: 10
+                                width: 10
+                                start_value: 338
+                                end_value: 360
+                  - arc:
+                      height: 110
+                      width: 110
+                      align: center
+                      arc_color: 0xf0f0f0
+                      arc_width: 150
+                      start_angle: 0
+                      end_angle: 360
+                      indicator:
+                        arc_width: 150
+                        arc_color: 0xf0f0f0
+                  - label:
+                      id: id_label_wind_direction                   
+                      text: " "
+                      text_font: fontArial40
+                      text_color: 0xa0a0a0
+                      align: center
+                      y: -15
+                  - label:
+                      id: id_label_string_wind_direction                   
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: center
+                      y: 20
+            #
+            # Vitesse du vent
+            #
+            - obj:
+                x: 330
+                y: 170
+                height: 20
+                width: 170
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_windspeed
+                      align: center
+                      text: " "
+                      text_font: fontArial20
+                      text_color: 0xc0c0c0
+            #
+            # Météo du jour +1 
+            #
+            - obj:
+                height: 130
+                width: 150
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                x: 0
+                y: 220
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_label_day_1                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: top_mid
+                      text: " "
+                  - image:
+                      align: top_mid
+                      y: 20
+                      src: img_day_113
+                      id: id_meteo_day_1
+                  - label:
+                      id: id_label_day_1_min_temp                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: bottom_mid
+                      x: -40
+                      text: " "
+                  - label:
+                      id: id_label_day_1_max_temp                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: bottom_mid
+                      x: 40
+                      text: " "
+            #
+            # Météo du jour +2
+            #
+            - obj:
+                height: 130
+                width: 150
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                x: 200
+                y: 220
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_label_day_2                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: top_mid
+                      text: " "
+                  - image:
+                      align: top_mid
+                      y: 20
+                      src: img_day_113
+                      id: id_meteo_day_2
+                  - label:
+                      id: id_label_day_2_min_temp                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: bottom_mid
+                      x: -40
+                      text: " "
+                  - label:
+                      id: id_label_day_2_max_temp                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: bottom_mid
+                      x: 40
+                      text: " "
+            #
+            # Météo du jour +3 
+            #
+            - obj:
+                height: 130
+                width: 150
+                bg_opa: TRANSP
+                bg_color: 0xffffff
+                border_width: 0
+                outline_width: 0
+                shadow_width: 0
+                pad_all: 0
+                x: 400
+                y: 220
+                scrollbar_mode: "off"
+                scrollable: false
+                widgets:
+                  - label:
+                      id: id_label_day_3                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: top_mid
+                      text: " "
+                  - image:
+                      align: top_mid
+                      y: 20
+                      src: img_day_113
+                      id: id_meteo_day_3
+                  - label:
+                      id: id_label_day_3_min_temp                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: bottom_mid
+                      x: -40
+                      text: " "
+                  - label:
+                      id: id_label_day_3_max_temp                   
+                      text_font: fontArial20
+                      text_color: 0xa0a0a0
+                      align: bottom_mid
+                      x: 40
+                      text: " "
+script:
+  #
+  # Mise à jour de l'heure
+  #
+  - id: time_update
+    then:
+      - lvgl.label.update:
+          id: hour_minute_label
+          text:
+            format: "%02d:%02d"
+            args:
+             - 'id(time_comp).now().hour'
+             - 'id(time_comp).now().minute'
+  #
+  # Mise à jour du jour et de la semaine
+  #  
+  - id: day_update
+    then:
+      - lvgl.label.update:
+          id: id_label_day_1
+          text:
+            format: "%s"
+            args:
+              - '(new const char *[7]{"Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"})[(int)(id(time_comp).now().day_of_week-1+1)%7]'
+      - lvgl.label.update:
+          id: id_label_day_2
+          text:
+            format: "%s"
+            args:
+              - '(new const char *[7]{"Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"})[(int)(id(time_comp).now().day_of_week-1+2)%7]'
+      - lvgl.label.update:
+          id: id_label_day_3
+          text:
+            format: "%s"
+            args:
+              - '(new const char *[7]{"Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"})[(int)(id(time_comp).now().day_of_week-1+3)%7]'
+      - lambda: |
+          char timeBuffer[12] = {}; 
+          time_t ts = std::time(NULL);
+          tm *timeInfo = localtime(&ts);
+          strftime(timeBuffer, sizeof(timeBuffer), "%V", timeInfo);
+          id(gWeek1) = std::stoi(timeBuffer);
+          ts = ts - ( 3600 * 24 * 7 );
+          timeInfo = localtime(&ts);
+          strftime(timeBuffer, sizeof(timeBuffer), "%V", timeInfo);
+          id(gWeek2) = std::stoi(timeBuffer);
+          ts = ts - ( 3600 * 24 * 7 );
+          timeInfo = localtime(&ts);
+          strftime(timeBuffer, sizeof(timeBuffer), "%V", timeInfo);
+          id(gWeek3) = std::stoi(timeBuffer);
+          ts = ts - ( 3600 * 24 * 7 );
+          timeInfo = localtime(&ts);
+          strftime(timeBuffer, sizeof(timeBuffer), "%V", timeInfo);
+          id(gWeek4) = std::stoi(timeBuffer);
+          ts = ts - ( 3600 * 24 * 7 );
+          timeInfo = localtime(&ts);
+          strftime(timeBuffer, sizeof(timeBuffer), "%V", timeInfo);
+          id(gWeek5) = std::stoi(timeBuffer);
+          ts = ts - ( 3600 * 24 * 7 );
+          timeInfo = localtime(&ts);
+          strftime(timeBuffer, sizeof(timeBuffer), "%V", timeInfo);
+          id(gWeek6) = std::stoi(timeBuffer);
+      - lvgl.label.update:
+          id: id_day_conso_1
+          text:
+            format: "%d"
+            args:
+             - 'id(gWeek1)'
+      - lvgl.label.update:
+          id: id_day_conso_2
+          text:
+            format: "%d"
+            args:
+             - 'id(gWeek2)'
+      - lvgl.label.update:
+          id: id_day_conso_3
+          text:
+            format: "%d"
+            args:
+             - 'id(gWeek3)'
+      - lvgl.label.update:
+          id: id_day_conso_4
+          text:
+            format: "%d"
+            args:
+             - 'id(gWeek4)'
+      - lvgl.label.update:
+          id: id_day_conso_5
+          text:
+            format: "%d"
+            args:
+             - 'id(gWeek5)'
+      - lvgl.label.update:
+          id: id_day_conso_6
+          text:
+            format: "%d"
+            args:
+             - 'id(gWeek6)'
+  #
+  # Mise à jour de la consommation gaz
+  #
+  - id: gas_consumption_update
+    then: 
+      - lvgl.label.update:
+          id: id_string_conso_1
+          text:
+            format: "%.1f"
+            args:
+             - 'id(gHeatingGasConsumption1)'
+      - lvgl.bar.update:
+          id: id_bar_conso_1
+          value:  !lambda 'return id(gHeatingGasConsumption1);'
+
+      - lvgl.label.update:
+          id: id_string_conso_2
+          text:
+            format: "%.1f"
+            args:
+             - 'id(gHeatingGasConsumption2)'
+      - lvgl.bar.update:
+          id: id_bar_conso_2
+          value: !lambda 'return id(gHeatingGasConsumption2);'
+
+      - lvgl.label.update:
+          id: id_string_conso_3
+          text:
+            format: "%.1f"
+            args:
+             - 'id(gHeatingGasConsumption3)'
+      - lvgl.bar.update:
+          id: id_bar_conso_3
+          value:  !lambda 'return id(gHeatingGasConsumption3);'
+
+      - lvgl.label.update:
+          id: id_string_conso_4
+          text:
+            format: "%.1f"
+            args:
+             - 'id(gHeatingGasConsumption4)'
+      - lvgl.bar.update:
+          id: id_bar_conso_4
+          value:  !lambda 'return id(gHeatingGasConsumption4);'
+
+      - lvgl.label.update:
+          id: id_string_conso_5
+          text:
+            format: "%.1f"
+            args:
+             - 'id(gHeatingGasConsumption5)'
+      - lvgl.bar.update:
+          id: id_bar_conso_5
+          value:  !lambda 'return id(gHeatingGasConsumption5);'
+
+      - lvgl.label.update:
+          id: id_string_conso_6
+          text:
+            format: "%.1f"
+            args:
+             - 'id(gHeatingGasConsumption6)'
+      - lvgl.bar.update:
+          id: id_bar_conso_6
+          value:  !lambda 'return id(gHeatingGasConsumption6);'
+
+  #
+  # Mise à jour de la météo du jour
+  #
+  - id: meteo_day_update
+    then:
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 113;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_113
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 116;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_116
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 119;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_119
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 122;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_122
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 143;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_143
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 176;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_176
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 179;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_179
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 182;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_182
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 185;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_185
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 200;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_200
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 227;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_227
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 230;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_230
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 248;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_248
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 260;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_260
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 263;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_263
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 266;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_266
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 281;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_281
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 284;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_284
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 293;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_293
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 296;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_296
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 299;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_299
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 302;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_302
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 305;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_305
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 308;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_308
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 311;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_311
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 314;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_314
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 317;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_317
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 320;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_320
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 323;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_323
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 326;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_326
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 329;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_329
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 332;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_332
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 335;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_335
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 338;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_338
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 350;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_350
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 353;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_353
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 356;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_356
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 359;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_359
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 362;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_362
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 365;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_365
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 368;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_368
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 371;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_371
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 374;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_374
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 377;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_377
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 386;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_386
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 389;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_389
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 392;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_392
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay) == 395;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day
+                src: img_day_395
+  #
+  # Mise à jour de la météo du jour +1
+  #
+  - id: meteo_day_1_update
+    then:
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 113;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_113
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 116;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_116
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 119;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_119
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 122;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_122
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 143;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_143
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 176;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_176
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 179;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_179
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 182;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_182
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 185;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_185
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 200;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_200
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 227;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_227
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 230;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_230
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 248;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_248
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 260;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_260
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 263;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_263
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 266;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_266
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 281;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_281
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 284;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_284
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 293;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_293
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 296;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_296
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 299;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_299
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 302;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_302
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 305;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_305
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 308;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_308
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 311;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_311
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 314;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_314
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 317;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_317
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 320;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_320
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 323;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_323
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 326;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_326
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 329;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_329
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 332;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_332
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 335;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_335
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 338;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_338
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 350;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_350
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 353;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_353
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 356;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_356
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 359;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_359
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 362;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_362
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 365;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_365
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 368;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_368
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 371;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_371
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 374;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_374
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 377;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_377
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 386;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_386
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 389;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_389
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 392;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_392
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_1) == 395;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_1
+                src: img_day_395
+  #
+  # Mise à jour de la météo du jour +2
+  #
+  - id: meteo_day_2_update
+    then:
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 113;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_113
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 116;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_116
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 119;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_119
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 122;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_122
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 143;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_143
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 176;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_176
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 179;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_179
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 182;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_182
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 185;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_185
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 200;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_200
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 227;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_227
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 230;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_230
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 248;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_248
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 260;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_260
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 263;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_263
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 266;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_266
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 281;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_281
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 284;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_284
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 293;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_293
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 296;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_296
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 299;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_299
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 302;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_302
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 305;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_305
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 308;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_308
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 311;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_311
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 314;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_314
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 317;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_317
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 320;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_320
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 323;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_323
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 326;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_326
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 329;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_329
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 332;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_332
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 335;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_335
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 338;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_338
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 350;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_350
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 353;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_353
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 356;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_356
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 359;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_359
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 362;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_362
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 365;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_365
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 368;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_368
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 371;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_371
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 374;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_374
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 377;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_377
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 386;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_386
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 389;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_389
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 392;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_392
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_2) == 395;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_2
+                src: img_day_395
+  #
+  # Mise à jour de la météo du jour +3
+  #
+  - id: meteo_day_3_update
+    then:
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 113;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_113
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 116;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_116
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 119;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_119
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 122;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_122
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 143;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_143
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 176;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_176
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 179;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_179
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 182;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_182
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 185;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_185
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 200;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_200
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 227;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_227
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 230;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_230
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 248;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_248
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 260;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_260
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 263;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_263
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 266;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_266
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 281;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_281
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 284;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_284
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 293;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_293
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 296;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_296
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 299;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_299
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 302;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_302
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 305;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_305
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 308;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_308
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 311;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_311
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 314;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_314
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 317;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_317
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 320;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_320
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 323;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_323
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 326;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_326
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 329;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_329
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 332;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_332
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 335;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_335
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 338;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_338
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 350;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_350
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 353;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_353
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 356;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_356
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 359;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_359
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 362;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_362
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 365;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_365
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 368;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_368
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 371;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_371
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 374;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_374
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 377;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_377
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 386;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_386
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 389;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_389
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 392;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_392
+      - if:
+          condition: 
+            - lambda: 'return id(gMeteoDay_3) == 395;'
+          then:
+            - lvgl.image.update:
+                id: id_meteo_day_3
+                src: img_day_395
